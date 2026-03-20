@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="FamilyFinance"/>
-<title>💜 FamilyFinance</title>
+<title>'💜' FamilyFinance</title>
 <link rel="manifest" href="manifest.json"/>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
@@ -319,14 +319,7 @@ select.form-input option { background:var(--card2); }
 <div id="toast" style="display:none"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════
-// ██████╗  ██████╗ ███╗   ██╗███████╗██╗ ██████╗
-// ██╔════╝██╔═══██╗████╗  ██║██╔════╝██║██╔════╝
-// ██║     ██║   ██║██╔██╗ ██║█████╗  ██║██║  ███╗
-// ██║     ██║   ██║██║╚██╗██║██╔══╝  ██║██║   ██║
-// ╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝
-//  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝
-// ═══════════════════════════════════════════════════════
+// === FamilyFinance - Configuracion Firebase ===
 
 // ▼▼▼ EDITA ESTOS VALORES CON TUS DATOS DE FIREBASE ▼▼▼
 const FIREBASE_CONFIG = {
@@ -336,7 +329,7 @@ const FIREBASE_CONFIG = {
   projectId: "finanzas-familiar-b41aa",
   storageBucket: "finanzas-familiar-b41aa.firebasestorage.app",
   messagingSenderId: "239691748871",
-  appId: "1:239691748871:web:a67f2d95762dfef24b7ca2",
+  appId: "1:239691748871:web:a67f2d95762dfef24b7ca2"
 };
 // ▲▲▲ FIN DE CONFIGURACIÓN ▲▲▲
 
@@ -368,7 +361,7 @@ function initFirebase() {
     document.getElementById("fbStatus").style.color = "var(--green)";
     fbDB.ref("/familyfinance").on("value", snap => {
       const val = snap.val();
-      if (_writing) return;
+      if (_writing) return; // ← esperando que termine nuestra escritura
       if (val) {
         DATA = val;
       } else {
@@ -390,6 +383,7 @@ function initFirebase() {
 let _writing = false;
 
 function setDeep(obj, keys, val) {
+  // Escribe en el objeto local DATA siguiendo la ruta de keys
   let cur = obj;
   for (let i=0; i<keys.length-1; i++) {
     cur[keys[i]] = cur[keys[i]] || {};
@@ -398,23 +392,36 @@ function setDeep(obj, keys, val) {
   cur[keys[keys.length-1]] = val;
 }
 
-function fbSetObject(path, obj) {
-  setDeep(DATA, path.split("/"), obj);
-  if (fbDB) {
-    _writing = true;
-    fbDB.ref("/familyfinance/" + path).set(obj)
-      .then(() => { setTimeout(() => { _writing = false; }, 500); })
-      .catch(err => { _writing = false; showWriteError(err.message); });
-  }
-}
-
 function fbSet(path, val) {
+  // 1. Escribe localmente en DATA
   setDeep(DATA, path.split("/"), val);
+  // 2. Escribe en Firebase directamente en esa ruta
   if (fbDB) {
     _writing = true;
     fbDB.ref("/familyfinance/" + path).set(val)
       .then(() => { setTimeout(() => { _writing = false; }, 500); })
-      .catch(err => { _writing = false; showWriteError(err.message); });
+      .catch(err => {
+        _writing = false;
+        console.error("Firebase write error:", err);
+        showWriteError(err.message);
+      });
+  }
+}
+
+function fbSetObject(path, obj) {
+  // Escribe un objeto completo de una sola vez — más seguro para ediciones
+  setDeep(DATA, path.split("/"), obj);
+  if (fbDB) {
+    _writing = true;
+    fbDB.ref("/familyfinance/" + path).set(obj)
+      .then(() => {
+        setTimeout(() => { _writing = false; }, 500);
+      })
+      .catch(err => {
+        _writing = false;
+        console.error("Firebase write error:", err);
+        showWriteError(err.message);
+      });
   }
 }
 
@@ -425,10 +432,12 @@ function fbPush(path, val) {
 }
 
 function fbDel(path) {
+  // Borra localmente
   const keys = path.split("/");
   let obj = DATA;
   for (let i=0; i<keys.length-1; i++) { if (!obj[keys[i]]) return; obj = obj[keys[i]]; }
   delete obj[keys[keys.length-1]];
+  // Borra en Firebase
   if (fbDB) {
     _writing = true;
     fbDB.ref("/familyfinance/" + path).remove()
@@ -438,12 +447,14 @@ function fbDel(path) {
 }
 
 function showWriteError(msg) {
+  // Muestra error visible si Firebase rechaza la escritura
   const t = document.getElementById("toast");
   t.textContent = "⚠️ Error guardando: " + msg;
   t.className = "err";
   t.style.display = "block";
   setTimeout(() => t.style.display="none", 5000);
 }
+
 // ─── HELPERS ──────────────────────────────────────────
 function fmtCLP(n) {
   n = parseFloat(n)||0;
@@ -956,9 +967,28 @@ function saveTx() {
   const ttype = document.getElementById("txType").value;
   if (!desc||!amt) { toast("Completa descripción y monto",true); return; }
   const finalAmt = ttype==="gasto" ? -Math.abs(amt) : Math.abs(amt);
-  fbPush("transactions", {date:nowStr(), desc, amount:finalAmt, cat, account:acc, txtype:ttype});
-  const oldBal = parseFloat((DATA.accounts[acc]||{}).balance||0);
-  fbSet(`accounts/${acc}/balance`, oldBal+finalAmt);
+  const key = "id_" + Date.now();
+  // Actualizar saldo de cuenta
+  const accData = (DATA.accounts||{})[acc] || {};
+  const newBal  = parseFloat(accData.balance||0) + finalAmt;
+  const newTx   = { date:nowStr(), desc, amount:finalAmt, cat, account:acc, txtype:ttype };
+  // Escribir transacción y saldo en una sola operación
+  if (fbDB) {
+    _writing = true;
+    const updates = {};
+    updates[`transactions/${key}`]      = newTx;
+    updates[`accounts/${acc}/balance`]  = newBal;
+    fbDB.ref("/familyfinance").update(updates)
+      .then(() => {
+        setDeep(DATA, ["transactions", key], newTx);
+        setDeep(DATA, ["accounts", acc, "balance"], newBal);
+        setTimeout(() => { _writing = false; }, 500);
+      })
+      .catch(err => { _writing = false; showWriteError(err.message); });
+  } else {
+    setDeep(DATA, ["transactions", key], newTx);
+    setDeep(DATA, ["accounts", acc, "balance"], newBal);
+  }
   closeModal();
   toast(ttype==="gasto"?"Gasto registrado ✓":"Ingreso registrado ✓");
 }
@@ -1223,12 +1253,15 @@ function selectEacIcon(el,ico){
 function saveEditAccount(id) {
   const name = document.getElementById("eac_name").value.trim();
   if (!name) { toast("Ingresa un nombre",true); return; }
-  fbSet(`accounts/${id}/name`,  name);
-  fbSet(`accounts/${id}/type`,  document.getElementById("eac_type").value);
-  fbSet(`accounts/${id}/owner`, document.getElementById("eac_owner").value);
-  fbSet(`accounts/${id}/balance`, parseFloat(document.getElementById("eac_bal").value)||0);
-  fbSet(`accounts/${id}/limit`,   parseFloat(document.getElementById("eac_lim").value)||0);
-  fbSet(`accounts/${id}/icon`,  document.getElementById("eac_icon").value);
+  const updated = {
+    name,
+    type:    document.getElementById("eac_type").value,
+    owner:   document.getElementById("eac_owner").value,
+    balance: parseFloat(document.getElementById("eac_bal").value)||0,
+    limit:   parseFloat(document.getElementById("eac_lim").value)||0,
+    icon:    document.getElementById("eac_icon").value,
+  };
+  fbSetObject(`accounts/${id}`, updated);
   closeModal(); toast("Cuenta actualizada ✓");
 }
 
@@ -1257,11 +1290,16 @@ function openEditDebt(id) {
 function saveEditDebt(id) {
   const name = document.getElementById("edt_name").value.trim();
   if (!name) { toast("Ingresa un nombre",true); return; }
-  fbSet(`debts/${id}/name`,    name);
-  fbSet(`debts/${id}/total`,   parseFloat(document.getElementById("edt_total").value)||0);
-  fbSet(`debts/${id}/paid`,    parseFloat(document.getElementById("edt_paid").value)||0);
-  fbSet(`debts/${id}/rate`,    parseFloat(document.getElementById("edt_rate").value)||0);
-  fbSet(`debts/${id}/monthly`, parseFloat(document.getElementById("edt_monthly").value)||0);
+  const existing = (DATA.debts||{})[id] || {};
+  const updated = {
+    ...existing,
+    name,
+    total:   parseFloat(document.getElementById("edt_total").value)||0,
+    paid:    parseFloat(document.getElementById("edt_paid").value)||0,
+    rate:    parseFloat(document.getElementById("edt_rate").value)||0,
+    monthly: parseFloat(document.getElementById("edt_monthly").value)||0,
+  };
+  fbSetObject(`debts/${id}`, updated);
   closeModal(); toast("Deuda actualizada ✓");
 }
 
@@ -1302,11 +1340,16 @@ function selectEfxIcon(el,ico){
 function saveEditFixed(id) {
   const name = document.getElementById("efx_name").value.trim();
   if (!name) { toast("Ingresa un nombre",true); return; }
-  fbSet(`fixed_expenses/${id}/name`,   name);
-  fbSet(`fixed_expenses/${id}/amount`, parseFloat(document.getElementById("efx_amt").value)||0);
-  fbSet(`fixed_expenses/${id}/day`,    parseInt(document.getElementById("efx_day").value)||1);
-  fbSet(`fixed_expenses/${id}/cat`,    document.getElementById("efx_cat").value);
-  fbSet(`fixed_expenses/${id}/icon`,   document.getElementById("efx_icon").value);
+  const existing = (DATA.fixed_expenses||{})[id] || {};
+  const updated = {
+    ...existing,
+    name,
+    amount: parseFloat(document.getElementById("efx_amt").value)||0,
+    day:    parseInt(document.getElementById("efx_day").value)||1,
+    cat:    document.getElementById("efx_cat").value,
+    icon:   document.getElementById("efx_icon").value,
+  };
+  fbSetObject(`fixed_expenses/${id}`, updated);
   closeModal(); toast("Gasto fijo actualizado ✓");
 }
 
@@ -1342,10 +1385,14 @@ function saveEditTx(id) {
   const amt  = parseFloat(document.getElementById("etx_amt").value)||0;
   if (!desc||!amt) { toast("Completa todos los campos",true); return; }
   const finalAmt = tx.txtype==="gasto" ? -Math.abs(amt) : Math.abs(amt);
-  fbSet(`transactions/${id}/desc`,    desc);
-  fbSet(`transactions/${id}/amount`,  finalAmt);
-  fbSet(`transactions/${id}/cat`,     document.getElementById("etx_cat").value);
-  fbSet(`transactions/${id}/account`, document.getElementById("etx_acc").value);
+  const updated = {
+    ...tx,
+    desc,
+    amount:  finalAmt,
+    cat:     document.getElementById("etx_cat").value,
+    account: document.getElementById("etx_acc").value,
+  };
+  fbSetObject(`transactions/${id}`, updated);
   closeModal(); toast("Movimiento actualizado ✓");
 }
 
