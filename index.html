@@ -329,7 +329,7 @@ select.form-input option { background:var(--card2); }
 // ═══════════════════════════════════════════════════════
 
 // ▼▼▼ EDITA ESTOS VALORES CON TUS DATOS DE FIREBASE ▼▼▼
-const firebaseConfig = {
+const FIREBASE_CONFIG = {
   apiKey: "AIzaSyC-gMXfsF5GOfKOjnxQfZ-0fy6T9h63dh0",
   authDomain: "finanzas-familiar-b41aa.firebaseapp.com",
   databaseURL: "https://finanzas-familiar-b41aa-default-rtdb.firebaseio.com",
@@ -974,7 +974,7 @@ function openAddAccount() {
       </select></div>
     <div class="form-group"><label class="form-label">Titular</label>
       <select class="form-input" id="ac_owner">
-        <option>Ambos</option><option>Frakmel</option><option>Raquel</option>
+        <option>Ambos</option><option>Solo yo</option><option>Mi pareja</option>
       </select></div>
     <div class="form-group"><label class="form-label">Saldo inicial</label>
       <input class="form-input" id="ac_bal" type="number" placeholder="0" inputmode="numeric"/></div>
