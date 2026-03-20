@@ -563,13 +563,23 @@ function renderDashboard() {
     </div>
 
     <!-- Month summary -->
-    <div class="grid-3">
-      ${[["💚 Ingresos",income,"var(--green)"],["💸 Gastos",expense,"var(--red)"],["📊 Balance",balance,balance>=0?"var(--green)":"var(--red)"]].map(([l,v,c])=>`
-      <div class="card" style="padding:12px;margin:0">
-        <div style="font-size:9px;color:var(--muted);font-weight:600;margin-bottom:3px">${l}</div>
-        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:15px;color:${c}">${fmtCLP(Math.abs(v))}</div>
+    <div class="grid-2" style="margin-bottom:8px">
+      ${[["💚 Ingresos",income,"var(--green)"],["💸 Gastos",expense,"var(--red)"]].map(([l,v,c])=>`
+      <div class="card" style="padding:13px;margin:0">
+        <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:4px">${l}</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px;color:${c}">${fmtCLP(Math.abs(v))}</div>
       </div>`).join("")}
     </div>
+    <div class="card" style="padding:13px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px">📊 Balance del mes</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:22px;color:${balance>=0?"var(--green)":"var(--red)"}">
+          ${balance>=0?"":"−"}${fmtCLP(Math.abs(balance))}
+        </div>
+      </div>
+      <div style="font-size:32px">${balance>=0?"✅":"⚠️"}</div>
+    </div>
+
 
     <!-- Accounts -->
     <div class="section-title">
@@ -976,13 +986,14 @@ function openAddAccount() {
     <div class="form-group"><label class="form-label">Tipo</label>
       <select class="form-input" id="ac_type">
         <option value="corriente">Cuenta Corriente</option>
+        <option value="corriente">Cuenta Rut</option>
         <option value="credito">Tarjeta Crédito</option>
         <option value="prepago">Tarjeta Prepago</option>
         <option value="ahorro">Cuenta Ahorro</option>
       </select></div>
     <div class="form-group"><label class="form-label">Titular</label>
       <select class="form-input" id="ac_owner">
-        <option>Ambos</option><option>Solo yo</option><option>Mi pareja</option>
+        <option>Ambos</option><option>Frakmel</option><option>Raquel</option>
       </select></div>
     <div class="form-group"><label class="form-label">Saldo inicial</label>
       <input class="form-input" id="ac_bal" type="number" placeholder="0" inputmode="numeric"/></div>
