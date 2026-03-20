@@ -354,32 +354,10 @@ const CAT_ICONS = {
 };
 const CATEGORIES = Object.keys(CAT_ICONS);
 
+// DEFAULT_DATA vacío — solo se usa si Firebase nunca ha tenido datos
+// Una vez que Firebase tiene tus datos, JAMÁS se sobreescribe
 const DEFAULT_DATA = {
-  accounts: {
-    a1:{ name:"Cuenta Vista Principal", type:"corriente", balance:1500000, limit:0, owner:"Ambos", icon:"🏦" },
-    a2:{ name:"Tarjeta Crédito Visa",   type:"credito",   balance:-320000, limit:1000000, owner:"Ambos", icon:"💳" },
-    a3:{ name:"Tarjeta Prepago",         type:"prepago",   balance:85000,   limit:0, owner:"Ambos", icon:"💰" },
-  },
-  transactions:{
-    t1:{date:"2026-03-19 08:30:00",desc:"Arriendo Marzo",   amount:-650000,cat:"Arriendo",    account:"a1",txtype:"gasto"},
-    t2:{date:"2026-03-19 10:00:00",desc:"Sueldo Marzo",     amount:1800000,cat:"Ingresos",    account:"a1",txtype:"ingreso"},
-    t3:{date:"2026-03-18 14:20:00",desc:"Comida Joli 🐾",   amount:-28000, cat:"Mascotas",    account:"a1",txtype:"gasto"},
-    t4:{date:"2026-03-18 09:10:00",desc:"Veterinario Coffee",amount:-45000,cat:"Mascotas",    account:"a1",txtype:"gasto"},
-    t5:{date:"2026-03-17 20:00:00",desc:"Supermercado",     amount:-89000, cat:"Alimentación",account:"a1",txtype:"gasto"},
-    t6:{date:"2026-03-17 12:00:00",desc:"Gastos Comunes",   amount:-55000, cat:"Gastos Comunes",account:"a1",txtype:"gasto"},
-    t7:{date:"2026-03-16 18:30:00",desc:"Ayuda Familia",    amount:-80000, cat:"Familia",     account:"a1",txtype:"gasto"},
-  },
-  debts:{
-    d1:{name:"Tarjeta Crédito Visa",total:320000, paid:100000,rate:18,monthly:50000,icon:"💳"},
-    d2:{name:"Préstamo Personal",    total:1200000,paid:200000,rate:12,monthly:80000,icon:"🏦"},
-  },
-  fixed_expenses:{
-    f1:{name:"Arriendo",         amount:650000,day:1, cat:"Arriendo",     icon:"🏠"},
-    f2:{name:"Gastos Comunes",   amount:55000, day:5, cat:"Gastos Comunes",icon:"🔧"},
-    f3:{name:"Internet",         amount:25000, day:10,cat:"Servicios",    icon:"📡"},
-    f4:{name:"Joli - Alimento",  amount:28000, day:1, cat:"Mascotas",     icon:"🐕"},
-    f5:{name:"Coffee - Alimento",amount:18000, day:1, cat:"Mascotas",     icon:"🐈"},
-  },
+  accounts:{}, transactions:{}, debts:{}, fixed_expenses:{},
   vacation:{ name:"", destination:"", date:"", budget:0, saved:0, items:{} }
 };
 
@@ -391,8 +369,12 @@ function initFirebase() {
     document.getElementById("fbStatus").style.color = "var(--green)";
     fbDB.ref("/familyfinance").on("value", snap => {
       const val = snap.val();
-      if (val) { DATA = val; }
-      else { DATA = JSON.parse(JSON.stringify(DEFAULT_DATA)); fbDB.ref("/familyfinance").set(DATA); }
+      if (val) {
+        DATA = val; // ← Firebase manda, siempre
+      } else {
+        DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
+        fbDB.ref("/familyfinance").set(DATA);
+      }
       renderCurrentTab();
     });
   } catch(e) {
@@ -400,6 +382,7 @@ function initFirebase() {
     DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
     document.getElementById("fbStatus").textContent = "💾 Modo offline";
     document.getElementById("fbStatus").style.color = "var(--yellow)";
+    renderCurrentTab();
   }
 }
 
@@ -579,7 +562,6 @@ function renderDashboard() {
       </div>
       <div style="font-size:32px">${balance>=0?"✅":"⚠️"}</div>
     </div>
-
 
     <!-- Accounts -->
     <div class="section-title">
@@ -986,7 +968,6 @@ function openAddAccount() {
     <div class="form-group"><label class="form-label">Tipo</label>
       <select class="form-input" id="ac_type">
         <option value="corriente">Cuenta Corriente</option>
-        <option value="corriente">Cuenta Rut</option>
         <option value="credito">Tarjeta Crédito</option>
         <option value="prepago">Tarjeta Prepago</option>
         <option value="ahorro">Cuenta Ahorro</option>
@@ -1154,6 +1135,180 @@ function saveVacation() {
   fbSet("vacation",updated);
   if(!fbDB)renderVacation();
   closeModal(); toast("Plan de vacaciones guardado 🌴");
+}
+
+
+// ═══════════════════════════════════════════════════════
+// EDIT ACCOUNT
+// ═══════════════════════════════════════════════════════
+function openEditAccount(id) {
+  const a = (DATA.accounts||{})[id];
+  if (!a) return;
+  openModal(`
+    <div class="modal-title">✏️ Editar Cuenta</div>
+    <div class="form-group"><label class="form-label">Nombre</label>
+      <input class="form-input" id="eac_name" value="${a.name||""}"/></div>
+    <div class="form-group"><label class="form-label">Tipo</label>
+      <select class="form-input" id="eac_type">
+        <option value="corriente" ${a.type==="corriente"?"selected":""}>Cuenta Corriente</option>
+        <option value="credito"   ${a.type==="credito"?"selected":""}>Tarjeta Crédito</option>
+        <option value="prepago"   ${a.type==="prepago"?"selected":""}>Tarjeta Prepago</option>
+        <option value="ahorro"    ${a.type==="ahorro"?"selected":""}>Cuenta Ahorro</option>
+      </select></div>
+    <div class="form-group"><label class="form-label">Titular</label>
+      <select class="form-input" id="eac_owner">
+        <option ${(a.owner||"")==="Ambos"?"selected":""}>Ambos</option>
+        <option ${(a.owner||"")==="Solo yo"?"selected":""}>Solo yo</option>
+        <option ${(a.owner||"")==="Mi pareja"?"selected":""}>Mi pareja</option>
+      </select></div>
+    <div class="form-group"><label class="form-label">Saldo actual ($)</label>
+      <input class="form-input" id="eac_bal" type="number" value="${parseFloat(a.balance||0)}" inputmode="numeric"/></div>
+    <div class="form-group"><label class="form-label">Límite (solo crédito)</label>
+      <input class="form-input" id="eac_lim" type="number" value="${parseFloat(a.limit||0)}" inputmode="numeric"/></div>
+    <div class="form-group"><label class="form-label">Ícono</label>
+      <div class="icon-picker" id="eacIconPicker">
+        ${["🏦","💳","💰","🏧","💵","🐖","✈️","🏠"].map(ico=>
+          \`<div class="icon-opt \${ico===a.icon?"selected":""}" onclick="selectEacIcon(this,'\${ico}')">\${ico}</div>\`
+        ).join("")}
+      </div>
+      <input type="hidden" id="eac_icon" value="${a.icon||"🏦"}"/>
+    </div>
+    <button class="btn btn-primary" onclick="saveEditAccount('${id}')" style="margin-bottom:8px">💾 Guardar Cambios</button>
+    <button class="btn btn-red" onclick="if(confirm('¿Eliminar esta cuenta?')){fbDel('accounts/${id}');closeModal();toast('Cuenta eliminada');}">🗑 Eliminar Cuenta</button>
+  `);
+}
+function selectEacIcon(el,ico){
+  document.querySelectorAll("#eacIconPicker .icon-opt").forEach(e=>e.classList.remove("selected"));
+  el.classList.add("selected");
+  document.getElementById("eac_icon").value=ico;
+}
+function saveEditAccount(id) {
+  const name = document.getElementById("eac_name").value.trim();
+  if (!name) { toast("Ingresa un nombre",true); return; }
+  fbSet(`accounts/${id}/name`,  name);
+  fbSet(`accounts/${id}/type`,  document.getElementById("eac_type").value);
+  fbSet(`accounts/${id}/owner`, document.getElementById("eac_owner").value);
+  fbSet(`accounts/${id}/balance`, parseFloat(document.getElementById("eac_bal").value)||0);
+  fbSet(`accounts/${id}/limit`,   parseFloat(document.getElementById("eac_lim").value)||0);
+  fbSet(`accounts/${id}/icon`,  document.getElementById("eac_icon").value);
+  closeModal(); toast("Cuenta actualizada ✓");
+}
+
+// ═══════════════════════════════════════════════════════
+// EDIT DEBT
+// ═══════════════════════════════════════════════════════
+function openEditDebt(id) {
+  const d = (DATA.debts||{})[id];
+  if (!d) return;
+  openModal(`
+    <div class="modal-title">✏️ Editar Deuda</div>
+    <div class="form-group"><label class="form-label">Nombre</label>
+      <input class="form-input" id="edt_name" value="${d.name||""}"/></div>
+    <div class="form-group"><label class="form-label">Monto total original ($)</label>
+      <input class="form-input" id="edt_total" type="number" value="${parseFloat(d.total||0)}" inputmode="numeric"/></div>
+    <div class="form-group"><label class="form-label">Ya pagado ($)</label>
+      <input class="form-input" id="edt_paid" type="number" value="${parseFloat(d.paid||0)}" inputmode="numeric"/></div>
+    <div class="form-group"><label class="form-label">Tasa de interés anual (%)</label>
+      <input class="form-input" id="edt_rate" type="number" value="${parseFloat(d.rate||0)}"/></div>
+    <div class="form-group"><label class="form-label">Cuota mensual ($)</label>
+      <input class="form-input" id="edt_monthly" type="number" value="${parseFloat(d.monthly||0)}" inputmode="numeric"/></div>
+    <button class="btn btn-primary" onclick="saveEditDebt('${id}')" style="margin-bottom:8px">💾 Guardar Cambios</button>
+    <button class="btn btn-red" onclick="if(confirm('¿Eliminar esta deuda?')){fbDel('debts/${id}');closeModal();toast('Deuda eliminada');}">🗑 Eliminar Deuda</button>
+  `);
+}
+function saveEditDebt(id) {
+  const name = document.getElementById("edt_name").value.trim();
+  if (!name) { toast("Ingresa un nombre",true); return; }
+  fbSet(`debts/${id}/name`,    name);
+  fbSet(`debts/${id}/total`,   parseFloat(document.getElementById("edt_total").value)||0);
+  fbSet(`debts/${id}/paid`,    parseFloat(document.getElementById("edt_paid").value)||0);
+  fbSet(`debts/${id}/rate`,    parseFloat(document.getElementById("edt_rate").value)||0);
+  fbSet(`debts/${id}/monthly`, parseFloat(document.getElementById("edt_monthly").value)||0);
+  closeModal(); toast("Deuda actualizada ✓");
+}
+
+// ═══════════════════════════════════════════════════════
+// EDIT FIXED EXPENSE
+// ═══════════════════════════════════════════════════════
+function openEditFixed(id) {
+  const f = (DATA.fixed_expenses||{})[id];
+  if (!f) return;
+  const catOpts = CATEGORIES.map(c=>`<option value="${c}" ${c===f.cat?"selected":""}>${c}</option>`).join("");
+  openModal(`
+    <div class="modal-title">✏️ Editar Gasto Fijo</div>
+    <div class="form-group"><label class="form-label">Nombre</label>
+      <input class="form-input" id="efx_name" value="${f.name||""}"/></div>
+    <div class="form-group"><label class="form-label">Monto mensual ($)</label>
+      <input class="form-input" id="efx_amt" type="number" value="${parseFloat(f.amount||0)}" inputmode="numeric"/></div>
+    <div class="form-group"><label class="form-label">Día del mes (1-31)</label>
+      <input class="form-input" id="efx_day" type="number" value="${parseInt(f.day||1)}" min="1" max="31" inputmode="numeric"/></div>
+    <div class="form-group"><label class="form-label">Categoría</label>
+      <select class="form-input" id="efx_cat">${catOpts}</select></div>
+    <div class="form-group"><label class="form-label">Ícono</label>
+      <div class="icon-picker" id="efxIconPicker">
+        ${["🏠","🔧","📡","📺","🐕","🐈","🚗","💊","📱","💡","🎓","🎵"].map(ico=>
+          \`<div class="icon-opt \${ico===f.icon?"selected":""}" onclick="selectEfxIcon(this,'\${ico}')">\${ico}</div>\`
+        ).join("")}
+      </div>
+      <input type="hidden" id="efx_icon" value="${f.icon||"🏠"}"/>
+    </div>
+    <button class="btn btn-primary" onclick="saveEditFixed('${id}')" style="margin-bottom:8px">💾 Guardar Cambios</button>
+    <button class="btn btn-red" onclick="if(confirm('¿Eliminar este gasto fijo?')){fbDel('fixed_expenses/${id}');closeModal();toast('Gasto fijo eliminado');}">🗑 Eliminar</button>
+  `);
+}
+function selectEfxIcon(el,ico){
+  document.querySelectorAll("#efxIconPicker .icon-opt").forEach(e=>e.classList.remove("selected"));
+  el.classList.add("selected");
+  document.getElementById("efx_icon").value=ico;
+}
+function saveEditFixed(id) {
+  const name = document.getElementById("efx_name").value.trim();
+  if (!name) { toast("Ingresa un nombre",true); return; }
+  fbSet(`fixed_expenses/${id}/name`,   name);
+  fbSet(`fixed_expenses/${id}/amount`, parseFloat(document.getElementById("efx_amt").value)||0);
+  fbSet(`fixed_expenses/${id}/day`,    parseInt(document.getElementById("efx_day").value)||1);
+  fbSet(`fixed_expenses/${id}/cat`,    document.getElementById("efx_cat").value);
+  fbSet(`fixed_expenses/${id}/icon`,   document.getElementById("efx_icon").value);
+  closeModal(); toast("Gasto fijo actualizado ✓");
+}
+
+// ═══════════════════════════════════════════════════════
+// EDIT TRANSACTION
+// ═══════════════════════════════════════════════════════
+function openEditTx(id) {
+  const tx = (DATA.transactions||{})[id];
+  if (!tx) return;
+  const accs = DATA.accounts||{};
+  const accOpts = Object.entries(accs).map(([aid,a])=>
+    `<option value="${aid}" ${aid===tx.account?"selected":""}>${a.icon||""} ${a.name}</option>`
+  ).join("");
+  const catOpts = CATEGORIES.map(c=>`<option value="${c}" ${c===tx.cat?"selected":""}>${CAT_ICONS[c]||""} ${c}</option>`).join("");
+  const amt = Math.abs(parseFloat(tx.amount||0));
+  openModal(`
+    <div class="modal-title">✏️ Editar Movimiento</div>
+    <div class="form-group"><label class="form-label">Descripción</label>
+      <input class="form-input" id="etx_desc" value="${tx.desc||""}"/></div>
+    <div class="form-group"><label class="form-label">Monto ($)</label>
+      <input class="form-input" id="etx_amt" type="number" value="${amt}" inputmode="numeric"/></div>
+    <div class="form-group"><label class="form-label">Categoría</label>
+      <select class="form-input" id="etx_cat">${catOpts}</select></div>
+    <div class="form-group"><label class="form-label">Cuenta</label>
+      <select class="form-input" id="etx_acc">${accOpts}</select></div>
+    <button class="btn btn-primary" onclick="saveEditTx('${id}')" style="margin-bottom:8px">💾 Guardar Cambios</button>
+    <button class="btn btn-red" onclick="if(confirm('¿Eliminar este movimiento?')){fbDel('transactions/${id}');closeModal();toast('Movimiento eliminado');}">🗑 Eliminar</button>
+  `);
+}
+function saveEditTx(id) {
+  const tx   = (DATA.transactions||{})[id];
+  const desc = document.getElementById("etx_desc").value.trim();
+  const amt  = parseFloat(document.getElementById("etx_amt").value)||0;
+  if (!desc||!amt) { toast("Completa todos los campos",true); return; }
+  const finalAmt = tx.txtype==="gasto" ? -Math.abs(amt) : Math.abs(amt);
+  fbSet(`transactions/${id}/desc`,    desc);
+  fbSet(`transactions/${id}/amount`,  finalAmt);
+  fbSet(`transactions/${id}/cat`,     document.getElementById("etx_cat").value);
+  fbSet(`transactions/${id}/account`, document.getElementById("etx_acc").value);
+  closeModal(); toast("Movimiento actualizado ✓");
 }
 
 // ═══════════════════════════════════════════════════════
