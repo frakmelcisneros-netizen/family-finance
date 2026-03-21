@@ -1236,7 +1236,7 @@ function openEditAccount(id) {
     <div class="form-group"><label class="form-label">Ícono</label>
       <div class="icon-picker" id="eacIconPicker">
         ${["🏦","💳","💰","🏧","💵","🐖","✈️","🏠"].map(ico=>
-          \`<div class="icon-opt \${ico===a.icon?"selected":""}" onclick="selectEacIcon(this,'\${ico}')">\${ico}</div>\`
+          `<div class="icon-opt ${ico===a.icon?"selected":""}" onclick="selectEacIcon(this,'${ico}')">${ico}</div>`
         ).join("")}
       </div>
       <input type="hidden" id="eac_icon" value="${a.icon||"🏦"}"/>
@@ -1323,7 +1323,7 @@ function openEditFixed(id) {
     <div class="form-group"><label class="form-label">Ícono</label>
       <div class="icon-picker" id="efxIconPicker">
         ${["🏠","🔧","📡","📺","🐕","🐈","🚗","💊","📱","💡","🎓","🎵"].map(ico=>
-          \`<div class="icon-opt \${ico===f.icon?"selected":""}" onclick="selectEfxIcon(this,'\${ico}')">\${ico}</div>\`
+          `<div class="icon-opt ${ico===f.icon?"selected":""}" onclick="selectEfxIcon(this,'${ico}')">${ico}</div>`
         ).join("")}
       </div>
       <input type="hidden" id="efx_icon" value="${f.icon||"🏠"}"/>
