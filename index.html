@@ -104,6 +104,18 @@ select.form-input option{background:var(--card2)}
 .cal-row:last-child{border-bottom:none}
 .cal-day{width:34px;height:34px;border-radius:10px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-family:"Syne",sans-serif;font-weight:800;font-size:14px;color:var(--accent);flex-shrink:0}
 .sep{height:1px;background:var(--border);margin:12px 0}
+
+/* === NEW: Filter section styles === */
+.filter-section{margin-bottom:12px}
+.filter-label{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+.chip-acc{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;border:none;cursor:pointer;white-space:nowrap;font-family:"DM Sans",sans-serif;transition:all .15s;background:var(--card2);color:var(--muted);display:inline-flex;align-items:center;gap:4px}
+.chip-acc.active{background:rgba(96,165,250,.2);color:var(--blue);border:1px solid rgba(96,165,250,.3)}
+.chip-acc:not(.active){border:1px solid transparent}
+.acc-breakdown{display:flex;flex-direction:column;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.acc-break-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.acc-break-icon{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;background:rgba(167,139,250,.1)}
+.acc-break-name{flex:1;color:var(--muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acc-break-vals{display:flex;gap:12px;font-weight:700;font-size:11px;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -359,7 +371,7 @@ function buildIconPicker(pickerId, hiddenId, icons, selected) {
 }
 
 // ============================================================
-// DASHBOARD
+// DASHBOARD - UPDATED: shows breakdown per account
 // ============================================================
 function renderDashboard() {
   var accs=DATA.accounts||{}, txs=DATA.transactions||{}, debts=DATA.debts||{};
@@ -367,10 +379,25 @@ function renderDashboard() {
   var totalAssets=Object.values(accs).reduce(function(s,a){ return s+(parseFloat(a.balance||0)>0?parseFloat(a.balance):0); },0);
   var totalDebt=Object.values(debts).reduce(function(s,d){ return s+(parseFloat(d.total||0)-parseFloat(d.paid||0)); },0);
   var netWorth=totalAssets-totalDebt;
+
+  // === ALL transactions this month across ALL accounts ===
   var monthTxs=Object.values(txs).filter(function(t){ return (t.date||"").startsWith(monthStr); });
   var income=monthTxs.filter(function(t){ return t.txtype==="ingreso"; }).reduce(function(s,t){ return s+parseFloat(t.amount||0); },0);
   var expense=Math.abs(monthTxs.filter(function(t){ return t.txtype==="gasto"; }).reduce(function(s,t){ return s+parseFloat(t.amount||0); },0));
   var balance=income-expense;
+
+  // === Per-account breakdown for this month ===
+  var accBreakdown={};
+  Object.keys(accs).forEach(function(accId){
+    accBreakdown[accId]={income:0,expense:0};
+  });
+  monthTxs.forEach(function(t){
+    var aid=t.account;
+    if (!accBreakdown[aid]) accBreakdown[aid]={income:0,expense:0};
+    if (t.txtype==="ingreso") accBreakdown[aid].income+=parseFloat(t.amount||0);
+    else if (t.txtype==="gasto") accBreakdown[aid].expense+=Math.abs(parseFloat(t.amount||0));
+  });
+
   var byCat={};
   monthTxs.filter(function(t){ return t.txtype==="gasto"; }).forEach(function(t){ byCat[t.cat]=(byCat[t.cat]||0)+Math.abs(parseFloat(t.amount||0)); });
   var topCats=Object.entries(byCat).sort(function(a,b){ return b[1]-a[1]; }).slice(0,4);
@@ -388,15 +415,35 @@ function renderDashboard() {
   html+='<div class="grid-2" style="margin-bottom:8px">';
   [["Ingresos",income,"var(--green)"],["Gastos",expense,"var(--red)"]].forEach(function(row){
     html+='<div class="card" style="padding:13px;margin:0">';
-    html+='<div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:4px">'+row[0]+'</div>';
+    html+='<div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:4px">'+row[0]+' (todas las cuentas)</div>';
     html+='<div style="font-family:Syne,sans-serif;font-weight:800;font-size:18px;color:'+row[2]+'">'+fmtCLP(Math.abs(row[1]))+'</div>';
     html+='</div>';
   });
   html+='</div>';
   html+='<div class="card" style="padding:13px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">';
-  html+='<div><div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px">Balance del mes</div>';
+  html+='<div><div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px">Balance del mes (global)</div>';
   html+='<div style="font-family:Syne,sans-serif;font-weight:800;font-size:22px;color:'+(balance>=0?"var(--green)":"var(--red)")+'">'+fmtCLP(balance)+'</div></div>';
   html+='<div style="font-size:32px">'+(balance>=0?"✅":"⚠️")+'</div></div>';
+
+  // === NEW: Per-account breakdown card ===
+  var accIds=Object.keys(accs);
+  if (accIds.length>1) {
+    html+='<div class="card" style="padding:14px">';
+    html+='<div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Desglose por cuenta este mes</div>';
+    accIds.forEach(function(accId){
+      var a=accs[accId];
+      var bd=accBreakdown[accId]||{income:0,expense:0};
+      var accBal=bd.income-bd.expense;
+      html+='<div class="acc-break-row" style="padding:6px 0;border-bottom:1px solid var(--border)">';
+      html+='<div class="acc-break-icon">'+(a.icon||"🏦")+'</div>';
+      html+='<div class="acc-break-name">'+a.name+'</div>';
+      html+='<div class="acc-break-vals">';
+      html+='<span style="color:var(--green)">+'+fmtCLP(bd.income)+'</span>';
+      html+='<span style="color:var(--red)">-'+fmtCLP(bd.expense)+'</span>';
+      html+='</div></div>';
+    });
+    html+='</div>';
+  }
 
   html+='<div class="section-title">Cuentas <button class="btn btn-primary btn-sm" onclick="openAddAccount()">+ Cuenta</button></div>';
   Object.entries(accs).forEach(function(entry){
@@ -440,34 +487,79 @@ function renderDashboard() {
 }
 
 // ============================================================
-// MOVEMENTS
+// MOVEMENTS - UPDATED: filter by account + category + type
 // ============================================================
-var mvFilter="todos", mvSearch="";
+var mvFilter="todos", mvSearch="", mvAccFilter="todas";
 function renderMovements() {
   var txs=DATA.transactions||{}, accs=DATA.accounts||{};
   var list=Object.entries(txs);
+
+  // === Filter by account ===
+  if (mvAccFilter!=="todas") {
+    list=list.filter(function(e){ return e[1].account===mvAccFilter; });
+  }
+
+  // === Filter by type/category ===
   if (mvFilter!=="todos") {
     if (["ingreso","gasto"].includes(mvFilter)) list=list.filter(function(e){ return e[1].txtype===mvFilter; });
     else list=list.filter(function(e){ return e[1].cat===mvFilter; });
   }
+
+  // === Search ===
   if (mvSearch) list=list.filter(function(e){ return (e[1].desc||"").toLowerCase().includes(mvSearch)||(e[1].cat||"").toLowerCase().includes(mvSearch); });
   list.sort(function(a,b){ return (b[1].date||"")>(a[1].date||"")?1:-1; });
 
+  // === Calculate filtered totals ===
+  var filtIncome=list.filter(function(e){ return e[1].txtype==="ingreso"; }).reduce(function(s,e){ return s+parseFloat(e[1].amount||0); },0);
+  var filtExpense=Math.abs(list.filter(function(e){ return e[1].txtype==="gasto"; }).reduce(function(s,e){ return s+parseFloat(e[1].amount||0); },0));
+
   var html='<div class="search-wrap"><span class="search-icon">🔍</span>';
   html+='<input class="form-input" id="mvSrch" placeholder="Buscar..." value="'+mvSearch+'" oninput="mvSearch=this.value.toLowerCase();renderMovements()" style="padding-left:36px"/></div>';
+
+  // === NEW: Account filter chips ===
+  html+='<div class="filter-section">';
+  html+='<div class="filter-label">Filtrar por cuenta</div>';
   html+='<div class="chip-row">';
-  [["todos","Todos"],["ingreso","Ingresos"],["gasto","Gastos"],["Mascotas","Mascotas"],["Familia","Familia"],["Arriendo","Arriendo"]].forEach(function(c){
+  html+='<button class="chip-acc'+(mvAccFilter==="todas"?" active":"")+'" onclick="mvAccFilter=\'todas\';renderMovements()">🏦 Todas</button>';
+  Object.entries(accs).forEach(function(entry){
+    var id=entry[0], a=entry[1];
+    html+='<button class="chip-acc'+(mvAccFilter===id?" active":"")+'" onclick="mvAccFilter=\''+id+'\';renderMovements()">'+(a.icon||"🏦")+' '+a.name+'</button>';
+  });
+  html+='</div></div>';
+
+  // === Type / Category chips ===
+  html+='<div class="filter-section">';
+  html+='<div class="filter-label">Tipo / Categoria</div>';
+  html+='<div class="chip-row">';
+  var filterOpts=[["todos","Todos"],["ingreso","Ingresos"],["gasto","Gastos"]];
+  // Add dynamic category chips from used categories
+  var usedCats={};
+  Object.values(txs).forEach(function(t){ if(t.cat) usedCats[t.cat]=true; });
+  Object.keys(usedCats).sort().forEach(function(cat){
+    filterOpts.push([cat,cat]);
+  });
+  filterOpts.forEach(function(c){
     html+='<button class="chip'+(mvFilter===c[0]?" active":"")+'" onclick="mvFilter=\''+c[0]+'\';renderMovements()">'+c[1]+'</button>';
   });
-  html+='</div><div style="font-size:11px;color:var(--muted);margin-bottom:8px">'+list.length+' movimientos</div>';
+  html+='</div></div>';
+
+  // === Filtered summary cards ===
+  html+='<div class="grid-2" style="margin-bottom:6px">';
+  html+='<div class="card" style="padding:10px;margin:0"><div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:2px">Ingresos filtrados</div>';
+  html+='<div style="font-family:Syne,sans-serif;font-weight:800;font-size:16px;color:var(--green)">'+fmtCLP(filtIncome)+'</div></div>';
+  html+='<div class="card" style="padding:10px;margin:0"><div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:2px">Gastos filtrados</div>';
+  html+='<div style="font-family:Syne,sans-serif;font-weight:800;font-size:16px;color:var(--red)">'+fmtCLP(filtExpense)+'</div></div>';
+  html+='</div>';
+
+  html+='<div style="font-size:11px;color:var(--muted);margin-bottom:8px">'+list.length+' movimientos'+(mvAccFilter!=="todas"?' en '+(accs[mvAccFilter]||{}).name:'')+'</div>';
   html+='<div class="card">';
-  if (!list.length) html+='<div style="text-align:center;padding:20px;color:var(--muted)">Sin movimientos</div>';
+  if (!list.length) html+='<div style="text-align:center;padding:20px;color:var(--muted)">Sin movimientos con estos filtros</div>';
   list.forEach(function(entry){
     var id=entry[0], tx=entry[1];
     var amt=parseFloat(tx.amount||0);
     var acc=accs[tx.account]||{};
     html+='<div class="tx-row" onclick="openTxDetail(\''+id+'\')"><div class="tx-icon" style="background:'+(amt>0?"rgba(52,211,153,.12)":"rgba(251,113,133,.12)")+'">'+( CAT_ICONS[tx.cat]||"📦")+'</div>';
-    html+='<div class="tx-body"><div class="tx-desc">'+tx.desc+'</div><div class="tx-meta">'+dateFmt(tx.date)+' · '+(acc.name||"?")+'</div></div>';
+    html+='<div class="tx-body"><div class="tx-desc">'+tx.desc+'</div><div class="tx-meta">'+dateFmt(tx.date)+' · '+(acc.icon||"")+" "+(acc.name||"?")+' · '+tx.cat+'</div></div>';
     html+='<div class="tx-amt" style="color:'+(amt>0?"var(--green)":"var(--red)")+'">'+(amt>0?"+":"")+fmtCLP(amt)+'</div></div>';
   });
   html+='</div><div style="height:8px"></div>';
@@ -695,7 +787,7 @@ function openTxDetail(id) {
     '<div class="sep"></div>'+
     '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted);font-size:13px">Categoria</span><span style="font-weight:600;font-size:13px">'+tx.cat+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted);font-size:13px">Fecha</span><span style="font-weight:600;font-size:13px">'+dateFmt(tx.date)+'</span></div>'+
-    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted);font-size:13px">Cuenta</span><span style="font-weight:600;font-size:13px">'+(acc.name||"?")+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted);font-size:13px">Cuenta</span><span style="font-weight:600;font-size:13px">'+(acc.icon||"")+" "+(acc.name||"?")+'</span></div>'+
     '<div class="sep"></div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
     '<button class="btn btn-ghost" onclick="closeModal();openEditTx(\''+id+'\')">Editar</button>'+
