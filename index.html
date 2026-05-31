@@ -193,28 +193,7 @@ const DEFAULT_DATA = {
 };
 
 // ---- FIREBASE ----
-function initFirebase() {
-  try {
-    firebase.initializeApp(FIREBASE_CONFIG);
-    fbDB = firebase.database();
-    firebase.auth().signInAnonymously().catch(function(e){ console.warn(e); });
-    document.getElementById("fbStatus").textContent = "🔥 Firebase conectado";
-    document.getElementById("fbStatus").style.color = "var(--green)";
-    fbDB.ref("/familyfinance").on("value", function(snap) {
-      if (_writing) return;
-      var val = snap.val();
-      if (val) { DATA = val; }
-      else { DATA = JSON.parse(JSON.stringify(DEFAULT_DATA)); fbDB.ref("/familyfinance").set(DATA); }
-      renderCurrentTab();
-    });
-  } catch(e) {
-    console.warn("Firebase no disponible:", e);
-    DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
-    document.getElementById("fbStatus").textContent = "💾 Modo offline";
-    document.getElementById("fbStatus").style.color = "var(--yellow)";
-    renderCurrentTab();
-  }
-}
+https://frakmelcisneros-netizen.github.io/family-finance/
 
 function setDeep(obj, keys, val) {
   var cur = obj;
