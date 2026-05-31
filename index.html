@@ -197,6 +197,7 @@ function initFirebase() {
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
     fbDB = firebase.database();
+    firebase.auth().signInAnonymously().catch(function(e){ console.warn(e); });
     document.getElementById("fbStatus").textContent = "🔥 Firebase conectado";
     document.getElementById("fbStatus").style.color = "var(--green)";
     fbDB.ref("/familyfinance").on("value", function(snap) {
